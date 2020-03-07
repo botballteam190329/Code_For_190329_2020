@@ -1,0 +1,175 @@
+#include <kipr/wombat.h>
+
+#define ARM_SERVO_L_PORT 3
+#define ARM_SERVO_R_PORT 0
+#define FOREARM_SERVO_PORT 1
+#define CLAW_SERVO_PORT 2
+
+#define CLAW_OPEN 625
+#define CLAW_CLOSED 1150
+
+void arm_all();
+void disarm();
+void claw_height_set(int currentPosition, int finishPosition);
+void move_arm(int currentPosition, int finishPosition);
+void slow_servo(int servoPort, int currentPosition, int finishPosition);
+
+int main()
+{
+
+    arm_all();
+    //wait for light
+    while(push_button() == 0) {
+        msleep(50);
+    }
+
+    //shut down in 119
+    //reset claw orientation
+    move_arm(850, 1024);
+    slow_servo(FOREARM_SERVO_PORT, 0, 1235);
+    claw_height_set(1024, 100);
+    msleep(500);
+
+    //square back twice for 2 axis of orientation
+    create_drive_direct(-100, -100);
+    msleep(2000);
+    create_drive_direct(200, 200);
+    msleep(1000);
+    //90 degree CCW
+    create_drive_direct(-100, 100);
+    msleep(1600);
+    //square back 2nd time
+    create_drive_direct(-75, -75);
+    //extend arm
+    claw_height_set(100, 1950);
+
+    //DONE SQUARING
+
+
+    //Drive to botguy
+    //Arc right (~40 degree CW)
+    create_drive_direct(300, 175);
+    msleep(1000);
+    //drive straight forward
+    create_drive_direct(300, 300);
+    msleep(1700);
+    //arc cw
+    create_drive_direct(200,50);
+    msleep(1200);
+    create_drive_direct(100,100);
+    while(get_create_rbump() == 0)
+    {
+        msleep(10);
+    }
+    create_stop();
+    slow_servo(CLAW_SERVO_PORT, CLAW_OPEN, CLAW_CLOSED);
+    slow_servo(FOREARM_SERVO_PORT, 309, 550);
+    create_drive_direct(-100,-100);
+    msleep(2000);
+    create_drive_direct(100,-100);
+    msleep(1600);
+    create_stop();
+    slow_servo(FOREARM_SERVO_PORT, 550, 309);
+    claw_height_set(1950,0);
+    slow_servo(CLAW_SERVO_PORT, CLAW_CLOSED, CLAW_OPEN);
+    claw_height_set(0,300);
+    create_drive_direct(200,200);
+    msleep(2000);
+    create_drive_direct(-100,-100);
+    msleep(1000);
+
+
+
+
+    disarm();
+    return 0;
+}
+
+
+void claw_height_set(int currentPosition, int finishPosition)
+{
+    set_servo_position(ARM_SERVO_L_PORT, currentPosition);
+    set_servo_position(ARM_SERVO_R_PORT, 1024-currentPosition+1024);
+    set_servo_position(FOREARM_SERVO_PORT, (1024-currentPosition+1024)+211);
+    while (currentPosition != finishPosition)
+    {
+        if (currentPosition < finishPosition)
+        {
+            currentPosition += 1;
+        }
+        if (currentPosition > finishPosition)
+        {
+            currentPosition -= 1;
+        }
+        set_servo_position(ARM_SERVO_L_PORT, currentPosition);
+        set_servo_position(ARM_SERVO_R_PORT, 1024-currentPosition+1024);
+        set_servo_position(FOREARM_SERVO_PORT, (1024-currentPosition+1024)+211);
+        msleep(1);
+    }
+}
+
+
+void move_arm(int currentPosition, int finishPosition)
+{
+    set_servo_position(ARM_SERVO_L_PORT, currentPosition);
+    set_servo_position(ARM_SERVO_R_PORT, 1024-currentPosition+1024);
+    while (currentPosition != finishPosition)
+    {
+        if (currentPosition < finishPosition)
+        {
+            currentPosition += 1;
+        }
+        if (currentPosition > finishPosition)
+        {
+            currentPosition -= 1;
+        }
+        set_servo_position(ARM_SERVO_L_PORT, currentPosition);
+        set_servo_position(ARM_SERVO_R_PORT, 1024-currentPosition+1024);
+        msleep(1);
+    }
+}
+
+
+void slow_servo(int servoPort, int currentPosition, int finishPosition)
+{
+    set_servo_position(servoPort, currentPosition);
+    msleep(200);
+    while (currentPosition != finishPosition)
+    {
+        if (currentPosition < finishPosition)
+        {
+            currentPosition += 1;
+        }
+        if (currentPosition > finishPosition)
+        {
+            currentPosition -= 1;
+        }
+        set_servo_position(servoPort, currentPosition);
+        msleep(1);
+    }
+}
+
+
+void arm_all()
+{
+    set_servo_position(ARM_SERVO_L_PORT, 1024);
+    set_servo_position(ARM_SERVO_R_PORT, 1024);
+    set_servo_position(FOREARM_SERVO_PORT, 1235);
+    set_servo_position(CLAW_SERVO_PORT, CLAW_OPEN);
+    enable_servos();
+    msleep(1000);
+    slow_servo(FOREARM_SERVO_PORT, 1235, 0);
+    move_arm(1024, 850);
+    printf("Armed\n");
+    msleep(250);
+    create_connect();
+    create_full();
+}
+
+void disarm()
+{
+    printf("End\n");
+    create_stop();
+    create_disconnect();
+    disable_servos();
+}
